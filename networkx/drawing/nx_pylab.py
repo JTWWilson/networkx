@@ -560,6 +560,7 @@ def draw_networkx_edges(
     connectionstyle : string (default="arc3")
         Pass the connectionstyle parameter to create curved arc of rounding
         radius rad. For example, connectionstyle='arc3,rad=0.2'.
+        For multigraphs, connectionstyle of multiedges is overriden by the method.
         See `matplotlib.patches.ConnectionStyle` and
         `matplotlib.patches.FancyArrowPatch` for more info.
 
@@ -641,6 +642,86 @@ def draw_networkx_edges(
     draw_networkx_edge_labels
 
     """
+
+    if arrowstyle == None:
+        if G.is_directed():
+            arrowstyle = "-|>"
+        else:
+            arrowstyle = "-"
+
+    if G.is_multigraph() == False:
+        return _draw_networkx_edges(
+            G,
+            pos,
+            edgelist=edgelist,
+            width=width,
+            edge_color=edge_color,
+            style=style,
+            alpha=alpha,
+            arrowstyle=arrowstyle,
+            arrowsize=arrowsize,
+            edge_cmap=edge_cmap,
+            edge_vmin=edge_vmin,
+            edge_vmax=edge_vmax,
+            ax=ax,
+            arrows=arrows,
+            label=label,
+            node_size=node_size,
+            nodelist=nodelist,
+            node_shape=node_shape,
+            connectionstyle=connectionstyle,
+            min_source_margin=min_source_margin,
+            min_target_margin=min_target_margin,
+        )
+    else:
+        return _draw_networkx_multigraph_edges(
+            G,
+            pos,
+            edgelist=edgelist,
+            width=width,
+            edge_color=edge_color,
+            style=style,
+            alpha=alpha,
+            arrowstyle=arrowstyle,
+            arrowsize=arrowsize,
+            edge_cmap=edge_cmap,
+            edge_vmin=edge_vmin,
+            edge_vmax=edge_vmax,
+            ax=ax,
+            label=label,
+            node_size=node_size,
+            nodelist=nodelist,
+            node_shape=node_shape,
+            connectionstyle=connectionstyle,
+            min_source_margin=min_source_margin,
+            min_target_margin=min_target_margin,
+        )
+
+
+def _draw_networkx_edges(
+    G,
+    pos,
+    edgelist=None,
+    width=1.0,
+    edge_color="k",
+    style="solid",
+    alpha=None,
+    arrowstyle=None,
+    arrowsize=10,
+    edge_cmap=None,
+    edge_vmin=None,
+    edge_vmax=None,
+    ax=None,
+    arrows=None,
+    label=None,
+    node_size=300,
+    nodelist=None,
+    node_shape="o",
+    connectionstyle="arc3",
+    min_source_margin=0,
+    min_target_margin=0,
+):
+
     import matplotlib as mpl
     import matplotlib.collections  # call as mpl.collections
     import matplotlib.colors  # call as mpl.colors
@@ -690,11 +771,9 @@ def draw_networkx_edges(
             msg = msg.format("min_target_margin")
         warnings.warn(msg, category=UserWarning, stacklevel=2)
 
-    if arrowstyle == None:
-        if G.is_directed():
-            arrowstyle = "-|>"
-        else:
-            arrowstyle = "-"
+    use_linecollection = not G.is_directed()
+    if arrows in (True, False):
+        use_linecollection = not arrows
 
     if ax is None:
         ax = plt.gca()
@@ -923,6 +1002,95 @@ def draw_networkx_edges(
     )
 
     return edge_viz_obj
+
+
+def _draw_networkx_multigraph_edges(
+    G,
+    pos,
+    edgelist=None,
+    width=1.0,
+    edge_color="k",
+    style="solid",
+    alpha=None,
+    arrowstyle=None,
+    arrowsize=10,
+    edge_cmap=None,
+    edge_vmin=None,
+    edge_vmax=None,
+    ax=None,
+    label=None,
+    node_size=300,
+    nodelist=None,
+    node_shape="o",
+    connectionstyle="arc3",
+    min_source_margin=0,
+    min_target_margin=0,
+):
+    from collections import Counter
+
+    if edgelist == None:
+        edgelist = list(G.edges())
+
+    edge_counts = Counter(edgelist)
+
+    drawnList = []
+
+    for edge, cnt in edge_counts.items():
+        if cnt == 1 and list(G.edges()).count((edge[1], edge[0])) == 0:
+            drawnEdge = _draw_networkx_edges(
+                G,
+                pos,
+                edgelist=[edge],
+                width=width,
+                edge_color=edge_color,
+                style=style,
+                alpha=alpha,
+                arrowstyle=arrowstyle,
+                arrowsize=arrowsize,
+                edge_cmap=edge_cmap,
+                edge_vmin=edge_vmin,
+                edge_vmax=edge_vmax,
+                ax=ax,
+                arrows=True,
+                label=label,
+                node_size=node_size,
+                nodelist=nodelist,
+                node_shape=node_shape,
+                connectionstyle="arc3,rad=0",
+                min_source_margin=min_source_margin,
+                min_target_margin=min_target_margin,
+            )
+            drawnList.extend(drawnEdge)
+        else:
+            bend = 0.5 / cnt
+            rad = bend
+            for i in range(cnt):
+                drawnEdge = _draw_networkx_edges(
+                    G,
+                    pos,
+                    edgelist=[edge],
+                    width=width,
+                    edge_color=edge_color,
+                    style=style,
+                    alpha=alpha,
+                    arrowstyle=arrowstyle,
+                    arrowsize=arrowsize,
+                    edge_cmap=edge_cmap,
+                    edge_vmin=edge_vmin,
+                    edge_vmax=edge_vmax,
+                    ax=ax,
+                    arrows=True,
+                    label=label,
+                    node_size=node_size,
+                    nodelist=nodelist,
+                    node_shape=node_shape,
+                    connectionstyle="arc3,rad=" + str(rad)[:3],
+                    min_source_margin=min_source_margin,
+                    min_target_margin=min_target_margin,
+                )
+                rad += bend
+                drawnList.extend(drawnEdge)
+    return drawnList
 
 
 def draw_networkx_labels(
